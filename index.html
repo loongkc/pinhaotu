@@ -1070,72 +1070,98 @@
         }
         
         // 合并图片
+// (确保这个函数在您的 <script> 标签内)
+
+        // 用于避免重复弹出特定错误信息的辅助函数
+        function alertContains(message, knownMessages) {
+            if (!message) return false;
+            return knownMessages.some(knownMsg => message.includes(knownMsg));
+        }
+
+        // 健壮化的叠加合并函数
         function mergeImages() {
             if (fragments.length < 2) {
-                alert("请至少选择两个碎片进行合并。"); // 提示用户
+                alert("请至少选择两个碎片进行合并。");
                 return;
             }
 
-            document.getElementById('merge-spinner').style.display = 'block';
-            document.getElementById('mergeBtn').disabled = true; // 处理期间禁用按钮
+            const mergeBtn = document.getElementById('mergeBtn');
+            const spinner = document.getElementById('merge-spinner');
+            const mergeResultsDiv = document.getElementById('merge-results');
+            const mergeResultImageElem = document.getElementById('mergeResultImage');
+            
+            spinner.style.display = 'block';
+            mergeBtn.disabled = true;
+            mergeResultsDiv.classList.add('hidden'); // 先隐藏旧结果
 
-            // 使用 setTimeout 实现异步处理，避免长时间操作阻塞UI线程
             setTimeout(() => {
                 try {
-                    let maxWidth = 0;
-                    let maxHeight = 0;
-                    
+                    let totalEffectiveFragments = 0;
+                    let canvasWidth = 0;
+                    let canvasHeight = 0;
+                    const knownErrorMessagesForAlert = [ // 用于 alertContains 的已知消息列表
+                        "No effective fragments for merging.",
+                        "Canvas dimensions are zero."
+                    ];
+
                     fragments.forEach(fragment => {
-                        // 确保 fragment.image 存在并且是已加载的图像对象
-                        if (fragment.image && fragment.image.complete && fragment.image.naturalWidth > 0) {
-                            maxWidth = Math.max(maxWidth, fragment.image.width);
-                            maxHeight = Math.max(maxHeight, fragment.image.height);
+                        if (fragment && fragment.image && fragment.image.complete && 
+                            fragment.image.naturalWidth > 0 && fragment.image.naturalHeight > 0) {
+                            
+                            // 对于叠加，画布尺寸是所有碎片中最大的宽度和高度
+                            canvasWidth = Math.max(canvasWidth, fragment.image.naturalWidth);
+                            canvasHeight = Math.max(canvasHeight, fragment.image.naturalHeight);
+                            totalEffectiveFragments++;
                         } else {
-                            // 可以选择忽略无效的碎片或提示用户
-                            console.warn("一个或多个碎片图像无效或未完全加载，可能影响合并结果。");
+                            console.warn("一个碎片图像无效或未完全加载，将被跳过。", fragment);
                         }
                     });
 
-                    if (maxWidth === 0 || maxHeight === 0) {
-                        alert("无法确定合并后图像的尺寸，请确保所有碎片均为有效的图片。");
-                        document.getElementById('merge-spinner').style.display = 'none';
-                        updateMergeButton(); // 更新按钮状态
-                        return;
+                    if (totalEffectiveFragments === 0) { // 修改：之前是 < 1
+                        alert("没有有效的碎片图片可供合并。");
+                        throw new Error("No effective fragments for merging.");
+                    }
+                    
+                    if (canvasWidth === 0 || canvasHeight === 0) {
+                         alert("无法确定合并后图像的尺寸，因为所有选中的碎片图片均无效或尺寸为0。");
+                         throw new Error("Canvas dimensions are zero.");
                     }
 
                     const mergeCanvas = document.createElement('canvas');
-                    mergeCanvas.width = maxWidth;
-                    mergeCanvas.height = maxHeight;
+                    mergeCanvas.width = canvasWidth;
+                    mergeCanvas.height = canvasHeight;
                     const mergeCtx = mergeCanvas.getContext('2d');
-
-                    // 重要：默认情况下，新画布是透明的。
-                    // 如果碎片本身带有透明度（例如，由本工具“透明背景”选项生成的PNG碎片），
-                    // 那么直接绘制它们会正确地叠加。
-                    // 如果碎片是不透明的（例如JPG，或带有纯色背景的PNG），
-                    // 它们会按照绘制顺序相互覆盖。
+                    // 画布默认是透明的
 
                     fragments.forEach(fragment => {
-                        if (fragment.image && fragment.image.complete && fragment.image.naturalWidth > 0) {
-                            // 假设所有碎片都从合并画布的 (0,0) 位置开始绘制并叠加。
-                            // 后绘制的碎片会覆盖在先绘制的碎片之上。
-                            // 这种方法会保留 fragment.image 中的所有像素，
-                            // 包括那些可能与您之前认为是“背景色”的颜色相同的像素。
-                            mergeCtx.drawImage(fragment.image, 0, 0, fragment.image.width, fragment.image.height);
+                        if (fragment && fragment.image && fragment.image.complete && 
+                            fragment.image.naturalWidth > 0 && fragment.image.naturalHeight > 0) {
+                            // 在 (0,0) 位置绘制图片，使用其原始尺寸进行叠加
+                            mergeCtx.drawImage(fragment.image, 0, 0, fragment.image.naturalWidth, fragment.image.naturalHeight);
                         }
                     });
                     
-                    mergedImage = mergeCanvas.toDataURL('image/png'); // 总是输出PNG以支持透明度
-                    document.getElementById('mergeResultImage').src = mergedImage;
-                    
-                    document.getElementById('merge-results').classList.remove('hidden');
+                    mergedImage = mergeCanvas.toDataURL('image/png'); // 更新全局变量
+                    if (mergedImage && mergedImage.startsWith("data:image/png")) {
+                        mergeResultImageElem.src = mergedImage;
+                        mergeResultsDiv.classList.remove('hidden');
+                    } else {
+                        console.error("生成的合并图像数据URL无效。", mergedImage);
+                        alert("生成合并图像失败，数据无效。");
+                    }
+
                 } catch (error) {
                     console.error("合并图片时发生错误:", error);
-                    alert("合并图片时发生错误，详情请查看浏览器控制台。");
+                    // 使用辅助函数避免重复弹窗
+                    if (!alertContains(error.message, knownErrorMessagesForAlert)) {
+                        alert("合并图片时发生错误，详情请查看浏览器控制台。");
+                    }
+                    mergeResultsDiv.classList.add('hidden'); // 确保出错时结果区隐藏
                 } finally {
-                    document.getElementById('merge-spinner').style.display = 'none';
-                    updateMergeButton(); // 根据当前碎片数量更新合并按钮的状态
+                    spinner.style.display = 'none';
+                    updateMergeButton(); // 确保按钮状态在操作结束后正确更新
                 }
-            }, 0); // setTimeout 0 使其在当前事件循环结束后执行
+            }, 0); // setTimeout 0 给予UI更新和图片加载的喘息时间
         }
         
         // 更新合并图片预览
