@@ -1,4 +1,321 @@
-<!DOCTYPE html>
+<body>
+    <div class="container">
+        <h1>拼好图 - 图片拆分与合并工具</h1>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="split">图片拆分</div>
+            <div class="tab" data-tab="merge">碎片合并</div>
+        </div>
+        
+        <!-- 图片拆分模块 -->
+        <div class="tab-content active" id="split-content">
+            <div class="panel">
+                <div class="drag-drop-area" id="split-drop-area">
+                    <p>拖放图片到这里，或</p>
+                    <label for="splitImage" class="file-label">选择图片</label>
+                    <input type="file" id="splitImage" accept="image/*">
+                </div>
+                
+                <div class="preview-area hidden" id="split-preview-area">
+                    <h3>预览</h3>
+                    <img id="originalPreview" class="preview-image" alt="原图预览">
+                    <div>
+                        <button class="btn" id="invertOriginal">反色</button>
+                        <button class="btn" id="resetOriginal">重置</button>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="fragmentCount">碎片数量:</label>
+                        <input type="range" id="fragmentCount" min="5" max="50" value="20">
+                        <span id="fragmentCountValue">20</span>
+                    </div>
+                    <div class="control-group">
+                        <label for="irregularity">不规则程度:</label>
+                        <input type="range" id="irregularity" min="0" max="100" value="50">
+                        <span id="irregularityValue">50%</span>
+                    </div>
+                    <div class="control-group">
+                        <label for="backgroundColor">背景颜色:</label>
+                        <select id="backgroundColor">
+                            <option value="white">白色</option>
+                            <option value="black">黑色</option>
+                            <option value="transparent">透明</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button id="splitBtn" class="btn" disabled>拆分图片</button>
+                <div class="spinner" id="split-spinner"></div>
+            </div>
+            
+            <div id="split-results" class="hidden">
+                <h3>拆分结果</h3>
+                <div id="splitResultContainer" class="result-container"></div>
+                <div class="download-all">
+                    <button id="downloadAllSplits" class="btn">下载全部碎片</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 碎片合并模块 -->
+        <div class="tab-content" id="merge-content">
+            <div class="panel">
+                <div class="drag-drop-area" id="merge-drop-area">
+                    <p>拖放碎片图片到这里，或</p>
+                    <label for="mergeImages" class="file-label">选择碎片图片</label>
+                    <input type="file" id="mergeImages" accept="image/*" multiple>
+                </div>
+                
+                <div id="selectedFragments">
+                    <h3>已选择的碎片</h3>
+                    <div id="fragmentPreviewContainer" class="result-container"></div>
+                </div>
+                
+                <button id="mergeBtn" class="btn" disabled>合并碎片</button>
+                <div class="spinner" id="merge-spinner"></div>
+            </div>
+            
+            <div id="merge-results" class="hidden">
+                <h3>合并结果</h3>
+                <img id="mergeResultImage" class="merge-preview" alt="合并结果">
+                <div class="controls">
+                    <button id="invertMerged" class="btn">反色</button>
+                    <button id="downloadMerged" class="btn">下载合并图片</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>© 2025 拼好图 - 一个简单的图片拆分与合并工具</p>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let originalImage = null;
+        let originalCanvas = document.createElement('canvas');
+        let originalCtx = originalCanvas.getContext('2d');
+        let isOriginalInverted = false;
+        let fragments = [];
+        let mergedImage = null;
+        let isMergedInverted = false;
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initTabs();
+            initSplitModule();
+            initMergeModule();
+        });
+        
+        // 初始化标签页切换
+        function initTabs() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // 移除所有活动标签和内容
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    // 设置当前标签和内容为活动
+                    const tabId = tab.getAttribute('data-tab');
+                    tab.classList.add('active');
+                    document.getElementById(`${tabId}-content`).classList.add('active');
+                });
+            });
+        }
+        
+        // 初始化图片拆分模块
+        function initSplitModule() {
+            const splitImageInput = document.getElementById('splitImage');
+            const splitDropArea = document.getElementById('split-drop-area');
+            const splitBtn = document.getElementById('splitBtn');
+            const fragmentCount = document.getElementById('fragmentCount');
+            const irregularity = document.getElementById('irregularity');
+            const fragmentCountValue = document.getElementById('fragmentCountValue');
+            const irregularityValue = document.getElementById('irregularityValue');
+            const invertOriginalBtn = document.getElementById('invertOriginal');
+            const resetOriginalBtn = document.getElementById('resetOriginal');
+            const downloadAllSplitsBtn = document.getElementById('downloadAllSplits');
+            
+            // 更新滑块值显示
+            fragmentCount.addEventListener('input', () => {
+                fragmentCountValue.textContent = fragmentCount.value;
+            });
+            
+            irregularity.addEventListener('input', () => {
+                irregularityValue.textContent = irregularity.value + '%';
+            });
+            
+            // 处理文件选择
+            splitImageInput.addEventListener('change', handleSplitImageSelect);
+            
+            // 处理拖放
+            setupDragDrop(splitDropArea, handleSplitImageDrop);
+            
+            // 处理拆分按钮点击
+            splitBtn.addEventListener('click', splitImage);
+            
+            // 处理原图反色
+            invertOriginalBtn.addEventListener('click', () => {
+                isOriginalInverted = !isOriginalInverted;
+                updateOriginalImagePreview();
+            });
+            
+            // 重置原图
+            resetOriginalBtn.addEventListener('click', () => {
+                isOriginalInverted = false;
+                updateOriginalImagePreview();
+            });
+            
+            // 下载所有碎片
+            downloadAllSplitsBtn.addEventListener('click', downloadAllFragments);
+        }
+        
+        // 初始化碎片合并模块
+        function initMergeModule() {
+            const mergeImagesInput = document.getElementById('mergeImages');
+            const mergeDropArea = document.getElementById('merge-drop-area');
+            const mergeBtn = document.getElementById('mergeBtn');
+            const invertMergedBtn = document.getElementById('invertMerged');
+            const downloadMergedBtn = document.getElementById('downloadMerged');
+            
+            // 处理文件选择
+            mergeImagesInput.addEventListener('change', handleMergeImagesSelect);
+            
+            // 处理拖放
+            setupDragDrop(mergeDropArea, handleMergeImagesDrop);
+            
+            // 处理合并按钮点击
+            mergeBtn.addEventListener('click', mergeImages);
+            
+            // 处理合并结果反色
+            invertMergedBtn.addEventListener('click', () => {
+                isMergedInverted = !isMergedInverted;
+                updateMergedImagePreview();
+            });
+            
+            // 下载合并结果
+            downloadMergedBtn.addEventListener('click', downloadMergedImage);
+        }
+        
+        // 设置拖放区域
+        function setupDragDrop(dropArea, dropHandler) {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => {
+                    dropArea.classList.add('dragover');
+                }, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => {
+                    dropArea.classList.remove('dragover');
+                }, false);
+            });
+            
+            dropArea.addEventListener('drop', dropHandler, false);
+        }
+        
+        // 处理拆分图片选择
+        function handleSplitImageSelect(e) {
+            const file = e.target.files[0];
+            if (file && file.type.match('image.*')) {
+                processSplitImage(file);
+            }
+        }
+        
+        // 处理拆分图片拖放
+        function handleSplitImageDrop(e) {
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.match('image.*')) {
+                processSplitImage(file);
+            }
+        }
+        
+        // 处理合并图片选择
+        function handleMergeImagesSelect(e) {
+            const files = e.target.files;
+            processMultipleImages(files);
+        }
+        
+        // 处理合并图片拖放
+        function handleMergeImagesDrop(e) {
+            const files = e.dataTransfer.files;
+            processMultipleImages(files);
+        }
+        
+        // 处理拆分图片文件
+        function processSplitImage(file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                loadOriginalImage(event.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // 加载原始图片
+        function loadOriginalImage(src) {
+            originalImage = new Image();
+            originalImage.onload = function() {
+                // 显示预览区域
+                document.getElementById('split-preview-area').classList.remove('hidden');
+                
+                // 设置Canvas大小
+                originalCanvas.width = originalImage.width;
+                originalCanvas.height = originalImage.height;
+                
+                // 绘制原始图片
+                updateOriginalImagePreview();
+                
+                // 启用拆分按钮
+                document.getElementById('splitBtn').disabled = false;
+            };
+            originalImage.src = src;
+        }
+        
+        // 更新原始图片预览
+        function updateOriginalImagePreview() {
+            // 清除Canvas
+            originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+            
+            // 绘制原始图片
+            originalCtx.drawImage(originalImage, 0, 0);
+            
+            // 如果需要反色
+            if (isOriginalInverted) {
+                invertCanvas(originalCtx, 0, 0, originalCanvas.width, originalCanvas.height);
+            }
+            
+            // 更新预览
+            document.getElementById('originalPreview').src = originalCanvas.toDataURL();
+        }
+        
+        // 反色处理
+        function invertCanvas(ctx, x, y, width, height) {
+            const imageData = ctx.getImageData(x, y, width, height);
+            const data = imageData.data;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                data[i] = 255 - data[i];         // 红色
+                data[i + 1] = 255 - data[i + 1]; // 绿色
+                data[i + 2] = 255 - data[i + 2]; // 蓝色
+                // data[i + 3] 是透明度，保持不变
+            }
+            
+            ctx.putImageData(imageData, x, y);
+        }
+        
+        // 生成随<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -9,7 +326,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             line-height: 1.6;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
             background-color: #f5f5f5;
             color: #333;
         }
@@ -17,22 +334,25 @@
             max-width: 1200px;
             margin: 0 auto;
             background-color: #fff;
-            padding: 20px;
+            padding: 15px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         h1 {
             text-align: center;
             color: #2c3e50;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
+            font-size: 24px;
         }
         .tabs {
             display: flex;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             border-bottom: 1px solid #ddd;
+            overflow-x: auto;
+            white-space: nowrap;
         }
         .tab {
-            padding: 10px 20px;
+            padding: 8px 15px;
             cursor: pointer;
             background-color: #f8f9fa;
             border: 1px solid #ddd;
@@ -40,6 +360,7 @@
             border-radius: 5px 5px 0 0;
             margin-right: 5px;
             font-weight: bold;
+            flex: 0 0 auto;
         }
         .tab.active {
             background-color: #fff;
@@ -54,8 +375,8 @@
             display: block;
         }
         .panel {
-            margin-bottom: 20px;
-            padding: 15px;
+            margin-bottom: 15px;
+            padding: 12px;
             border: 1px solid #e0e0e0;
             border-radius: 5px;
             background-color: #fafafa;
@@ -63,23 +384,24 @@
         .controls {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 10px;
+            margin-bottom: 15px;
         }
         .control-group {
             flex: 1;
-            min-width: 200px;
+            min-width: 150px;
         }
         .btn {
             display: inline-block;
             background-color: #3498db;
             color: white;
-            padding: 10px 15px;
+            padding: 8px 12px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
-            margin-top: 10px;
+            font-size: 14px;
+            margin-top: 8px;
+            text-align: center;
         }
         .btn:hover {
             background-color: #2980b9;
@@ -91,39 +413,40 @@
         .result-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 20px;
+            gap: 10px;
+            margin-top: 15px;
+            justify-content: center;
         }
         .result-image {
-            max-width: 200px;
-            max-height: 200px;
+            max-width: 150px;
+            max-height: 150px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            padding: 5px;
+            padding: 3px;
             background-color: white;
         }
         .image-container {
             display: inline-block;
             position: relative;
-            margin: 10px;
+            margin: 5px;
         }
         .image-container img {
-            max-width: 200px;
-            max-height: 200px;
+            max-width: 150px;
+            max-height: 150px;
             border: 1px solid #ddd;
-            padding: 5px;
+            padding: 3px;
         }
         .image-container .remove-btn {
             position: absolute;
-            top: -10px;
-            right: -10px;
+            top: -8px;
+            right: -8px;
             background-color: #e74c3c;
             color: white;
             border: none;
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            font-size: 14px;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -131,7 +454,7 @@
         }
         .download-all {
             text-align: center;
-            margin-top: 20px;
+            margin-top: 15px;
         }
         input[type="file"] {
             display: none;
@@ -140,34 +463,36 @@
             display: inline-block;
             background-color: #2ecc71;
             color: white;
-            padding: 10px 15px;
+            padding: 8px 12px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 14px;
         }
         .file-label:hover {
             background-color: #27ae60;
         }
         label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
             font-weight: bold;
+            font-size: 14px;
         }
         select, input[type="range"], input[type="number"], input[type="color"] {
             width: 100%;
-            padding: 8px;
+            padding: 6px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+            font-size: 14px;
         }
         .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-left: 4px solid #3498db;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-left: 3px solid #3498db;
             border-radius: 50%;
-            width: 30px;
-            height: 30px;
+            width: 24px;
+            height: 24px;
             animation: spin 1s linear infinite;
-            margin: 20px auto;
+            margin: 15px auto;
             display: none;
         }
         @keyframes spin {
@@ -178,28 +503,28 @@
             display: none;
         }
         .footer {
-            margin-top: 30px;
+            margin-top: 20px;
             text-align: center;
             color: #7f8c8d;
-            font-size: 14px;
+            font-size: 12px;
         }
         .preview-area {
-            margin-top: 20px;
+            margin-top: 15px;
             text-align: center;
         }
         .preview-image {
             max-width: 100%;
-            max-height: 400px;
+            max-height: 300px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            padding: 5px;
+            padding: 3px;
         }
         .drag-drop-area {
             border: 2px dashed #ccc;
             border-radius: 5px;
-            padding: 30px;
+            padding: 20px;
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             color: #666;
             transition: all 0.3s;
         }
@@ -208,16 +533,16 @@
             border-color: #3498db;
         }
         .merge-preview {
-            max-width: 600px;
-            max-height: 600px;
+            max-width: 100%;
+            max-height: 400px;
             margin: 0 auto;
             display: block;
         }
         .toggle-switch {
             position: relative;
             display: inline-block;
-            width: 60px;
-            height: 34px;
+            width: 50px;
+            height: 28px;
         }
         .toggle-switch input {
             opacity: 0;
@@ -233,13 +558,13 @@
             bottom: 0;
             background-color: #ccc;
             transition: .4s;
-            border-radius: 34px;
+            border-radius: 28px;
         }
         .toggle-slider:before {
             position: absolute;
             content: "";
-            height: 26px;
-            width: 26px;
+            height: 20px;
+            width: 20px;
             left: 4px;
             bottom: 4px;
             background-color: white;
@@ -250,11 +575,48 @@
             background-color: #2196F3;
         }
         input:checked + .toggle-slider:before {
-            transform: translateX(26px);
+            transform: translateX(22px);
         }
         .switch-label {
-            margin-left: 70px;
+            margin-left: 60px;
             font-weight: normal;
+            font-size: 14px;
+        }
+        
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+            .container {
+                padding: 10px;
+            }
+            h1 {
+                font-size: 20px;
+            }
+            .btn {
+                width: 100%;
+                margin-bottom: 5px;
+            }
+            .controls {
+                flex-direction: column;
+            }
+            .control-group {
+                width: 100%;
+            }
+            .preview-image {
+                max-height: 250px;
+            }
+            .result-image, .image-container img {
+                max-width: 100px;
+                max-height: 100px;
+            }
+            .panel {
+                padding: 8px;
+            }
+            .drag-drop-area {
+                padding: 15px;
+            }
         }
     </style>
 </head>
@@ -851,4 +1213,3 @@
     </script>
 </body>
 </html>
-            
