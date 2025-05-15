@@ -560,119 +560,659 @@
 <body>
     <div class="container">
         <h1>拼好图 - 图片拆分与合并工具</h1>
-
-        <!-- 合并区域 -->
-        <div class="panel">
-            <div class="drag-drop-area" id="merge-drop-area">
-                <p>拖放碎片图片到这里，或</p>
-                <label for="mergeImages" class="file-label">选择碎片图片</label>
-                <input type="file" id="mergeImages" accept="image/*" multiple>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="split">图片拆分</div>
+            <div class="tab" data-tab="merge">碎片合并</div>
+        </div>
+        
+        <!-- 图片拆分模块 -->
+        <div class="tab-content active" id="split-content">
+            <div class="panel">
+                <div class="drag-drop-area" id="split-drop-area">
+                    <p>拖放图片到这里，或</p>
+                    <label for="splitImage" class="file-label">选择图片</label>
+                    <input type="file" id="splitImage" accept="image/*">
+                </div>
+                
+                <div class="preview-area hidden" id="split-preview-area">
+                    <h3>预览</h3>
+                    <img id="originalPreview" class="preview-image" alt="原图预览">
+                    <div>
+                        <button class="btn" id="invertOriginal">反色</button>
+                        <button class="btn" id="resetOriginal">重置</button>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="splitColumns">水平分割数量:</label>
+                        <input type="range" id="splitColumns" min="2" max="10" value="3">
+                        <span id="splitColumnsValue">3</span>
+                    </div>
+                    <div class="control-group">
+                        <label for="splitRows">垂直分割数量:</label>
+                        <input type="range" id="splitRows" min="2" max="10" value="3">
+                        <span id="splitRowsValue">3</span>
+                    </div>
+                    <div class="control-group">
+                        <label for="backgroundColor">背景颜色:</label>
+                        <select id="backgroundColor">
+                            <option value="white">白色</option>
+                            <option value="black">黑色</option>
+                            <option value="transparent">透明</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button id="splitBtn" class="btn" disabled>拆分图片</button>
+                <div class="spinner" id="split-spinner"></div>
             </div>
-            <div id="fragmentPreviewContainer" class="result-container"></div>
-            <button class="btn" id="mergeBtn">合并图片</button>
-            <div class="preview-area">
-                <h3>合并预览</h3>
-                <canvas id="mergeCanvas" class="merge-preview"></canvas>
+            
+            <div id="split-results" class="hidden">
+                <h3>拆分结果</h3>
+                <div id="splitResultContainer" class="result-container"></div>
+                <div class="download-all">
+                    <button id="downloadAllSplits" class="btn">下载全部碎片</button>
+                </div>
             </div>
-            <div class="download-all">
-                <button class="btn" id="downloadMerged">下载合并图</button>
+        </div>
+        
+        <!-- 碎片合并模块 -->
+        <div class="tab-content" id="merge-content">
+            <div class="panel">
+                <div class="drag-drop-area" id="merge-drop-area">
+                    <p>拖放碎片图片到这里，或</p>
+                    <label for="mergeImages" class="file-label">选择碎片图片</label>
+                    <input type="file" id="mergeImages" accept="image/*" multiple>
+                </div>
+                
+                <div id="selectedFragments">
+                    <h3>已选择的碎片</h3>
+                    <div id="fragmentPreviewContainer" class="result-container"></div>
+                </div>
+                
+                <button id="mergeBtn" class="btn" disabled>合并碎片</button>
+                <div class="spinner" id="merge-spinner"></div>
             </div>
+            
+            <div id="merge-results" class="hidden">
+                <h3>合并结果</h3>
+                <img id="mergeResultImage" class="merge-preview" alt="合并结果">
+                <div class="controls">
+                    <button id="invertMerged" class="btn">反色</button>
+                    <button id="downloadMerged" class="btn">下载合并图片</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>© 2025 拼好图 - 一个简单的图片拆分与合并工具</p>
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
-        const mergeInput = document.getElementById('mergeImages');
-        const fragmentContainer = document.getElementById('fragmentPreviewContainer');
-        const mergeCanvas = document.getElementById('mergeCanvas');
-        const mergeBtn = document.getElementById('mergeBtn');
-        const downloadBtn = document.getElementById('downloadMerged');
-
-        let imageFragments = [];
-
-        mergeInput.addEventListener('change', (e) => {
-            handleFiles(e.target.files);
+       // 全局变量
+        let originalImage = null;
+        let originalCanvas = document.createElement('canvas');
+        let originalCtx = originalCanvas.getContext('2d');
+        let isOriginalInverted = false;
+        let fragments = [];
+        let mergedImage = null;
+        let isMergedInverted = false;
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initTabs();
+            initSplitModule();
+            initMergeModule();
         });
-
-        document.getElementById('merge-drop-area').addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.currentTarget.classList.add('dragover');
-        });
-        document.getElementById('merge-drop-area').addEventListener('dragleave', (e) => {
-            e.currentTarget.classList.remove('dragover');
-        });
-        document.getElementById('merge-drop-area').addEventListener('drop', (e) => {
-            e.preventDefault();
-            e.currentTarget.classList.remove('dragover');
-            handleFiles(e.dataTransfer.files);
-        });
-
-        function handleFiles(files) {
-            [...files].forEach(file => {
-                const reader = new FileReader();
-                reader.onload = e => {
-                    const img = new Image();
-                    img.onload = () => {
-                        imageFragments.push(img);
-                        const div = document.createElement('div');
-                        div.className = 'image-container';
-                        div.appendChild(img);
-                        fragmentContainer.appendChild(div);
-                    };
-                    img.src = e.target.result;
-                };
-                reader.readAsDataURL(file);
+        
+        // 初始化标签页切换
+        function initTabs() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // 移除所有活动标签和内容
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    // 设置当前标签和内容为活动
+                    const tabId = tab.getAttribute('data-tab');
+                    tab.classList.add('active');
+                    document.getElementById(`${tabId}-content`).classList.add('active');
+                });
             });
         }
-
-        mergeBtn.addEventListener('click', () => {
-            if (imageFragments.length === 0) return;
-
-            const width = imageFragments[0].naturalWidth;
-            const height = imageFragments[0].naturalHeight;
-            mergeCanvas.width = width;
-            mergeCanvas.height = height;
-            const ctx = mergeCanvas.getContext('2d');
-
-            // 清空画布，设置为黑色或白色背景
-            ctx.fillStyle = 'white'; // 可根据需求改为 black
-            ctx.fillRect(0, 0, width, height);
-
-            // 遍历图片碎片，像素级合并
+        
+        // 初始化图片拆分模块
+        function initSplitModule() {
+            const splitImageInput = document.getElementById('splitImage');
+            const splitDropArea = document.getElementById('split-drop-area');
+            const splitBtn = document.getElementById('splitBtn');
+            const splitColumns = document.getElementById('splitColumns');
+            const splitRows = document.getElementById('splitRows');
+            const splitColumnsValue = document.getElementById('splitColumnsValue');
+            const splitRowsValue = document.getElementById('splitRowsValue');
+            const invertOriginalBtn = document.getElementById('invertOriginal');
+            const resetOriginalBtn = document.getElementById('resetOriginal');
+            const downloadAllSplitsBtn = document.getElementById('downloadAllSplits');
+            
+            // 更新滑块值显示
+            splitColumns.addEventListener('input', () => {
+                splitColumnsValue.textContent = splitColumns.value;
+            });
+            
+            splitRows.addEventListener('input', () => {
+                splitRowsValue.textContent = splitRows.value;
+            });
+            
+            // 处理文件选择
+            splitImageInput.addEventListener('change', handleSplitImageSelect);
+            
+            // 处理拖放
+            setupDragDrop(splitDropArea, handleSplitImageDrop);
+            
+            // 处理拆分按钮点击
+            splitBtn.addEventListener('click', splitImage);
+            
+            // 处理原图反色
+            invertOriginalBtn.addEventListener('click', () => {
+                isOriginalInverted = !isOriginalInverted;
+                updateOriginalImagePreview();
+            });
+            
+            // 重置原图
+            resetOriginalBtn.addEventListener('click', () => {
+                isOriginalInverted = false;
+                updateOriginalImagePreview();
+            });
+            
+            // 下载所有碎片
+            downloadAllSplitsBtn.addEventListener('click', downloadAllFragments);
+        }
+        
+        // 初始化碎片合并模块
+        function initMergeModule() {
+            const mergeImagesInput = document.getElementById('mergeImages');
+            const mergeDropArea = document.getElementById('merge-drop-area');
+            const mergeBtn = document.getElementById('mergeBtn');
+            const invertMergedBtn = document.getElementById('invertMerged');
+            const downloadMergedBtn = document.getElementById('downloadMerged');
+            
+            // 处理文件选择
+            mergeImagesInput.addEventListener('change', handleMergeImagesSelect);
+            
+            // 处理拖放
+            setupDragDrop(mergeDropArea, handleMergeImagesDrop);
+            
+            // 处理合并按钮点击
+            mergeBtn.addEventListener('click', mergeImages);
+            
+            // 处理合并结果反色
+            invertMergedBtn.addEventListener('click', () => {
+                isMergedInverted = !isMergedInverted;
+                updateMergedImagePreview();
+            });
+            
+            // 下载合并结果
+            downloadMergedBtn.addEventListener('click', downloadMergedImage);
+        }
+        
+        // 设置拖放区域
+        function setupDragDrop(dropArea, dropHandler) {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => {
+                    dropArea.classList.add('dragover');
+                }, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => {
+                    dropArea.classList.remove('dragover');
+                }, false);
+            });
+            
+            dropArea.addEventListener('drop', dropHandler, false);
+        }
+        
+        // 处理拆分图片选择
+        function handleSplitImageSelect(e) {
+            const file = e.target.files[0];
+            if (file && file.type.match('image.*')) {
+                processSplitImage(file);
+            }
+        }
+        
+        // 处理拆分图片拖放
+        function handleSplitImageDrop(e) {
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.match('image.*')) {
+                processSplitImage(file);
+            }
+        }
+        
+        // 处理合并图片选择
+        function handleMergeImagesSelect(e) {
+            const files = e.target.files;
+            processMultipleImages(files);
+        }
+        
+        // 处理合并图片拖放
+        function handleMergeImagesDrop(e) {
+            const files = e.dataTransfer.files;
+            processMultipleImages(files);
+        }
+        
+        // 处理拆分图片文件
+        function processSplitImage(file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                loadOriginalImage(event.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // 加载原始图片
+        function loadOriginalImage(src) {
+            originalImage = new Image();
+            originalImage.onload = function() {
+                // 显示预览区域
+                document.getElementById('split-preview-area').classList.remove('hidden');
+                
+                // 设置Canvas大小
+                originalCanvas.width = originalImage.width;
+                originalCanvas.height = originalImage.height;
+                
+                // 绘制原始图片
+                updateOriginalImagePreview();
+                
+                // 启用拆分按钮
+                document.getElementById('splitBtn').disabled = false;
+            };
+            originalImage.src = src;
+        }
+        
+        // 更新原始图片预览
+        function updateOriginalImagePreview() {
+            // 清除Canvas
+            originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+            
+            // 绘制原始图片
+            originalCtx.drawImage(originalImage, 0, 0);
+            
+            // 如果需要反色
+            if (isOriginalInverted) {
+                invertCanvas(originalCtx, 0, 0, originalCanvas.width, originalCanvas.height);
+            }
+            
+            // 更新预览
+            document.getElementById('originalPreview').src = originalCanvas.toDataURL();
+        }
+        
+        // 反色处理
+        function invertCanvas(ctx, x, y, width, height) {
+            const imageData = ctx.getImageData(x, y, width, height);
+            const data = imageData.data;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                data[i] = 255 - data[i];         // 红色
+                data[i + 1] = 255 - data[i + 1]; // 绿色
+                data[i + 2] = 255 - data[i + 2]; // 蓝色
+                // data[i + 3] 是透明度，保持不变
+            }
+            
+            ctx.putImageData(imageData, x, y);
+        }
+        
+        // 拆分图片
+        function splitImage() {
+            if (!originalImage) return;
+            
+            // 显示加载动画
+            document.getElementById('split-spinner').style.display = 'block';
+            
+            // 清空之前的结果
+            document.getElementById('splitResultContainer').innerHTML = '';
+            
+            // 获取拆分参数
+            const columns = parseInt(document.getElementById('splitColumns').value);
+            const rows = parseInt(document.getElementById('splitRows').value);
+            const bgColor = document.getElementById('backgroundColor').value;
+            
+            // 计算每个碎片的尺寸
+            const fragmentWidth = Math.ceil(originalCanvas.width / columns);
+            const fragmentHeight = Math.ceil(originalCanvas.height / rows);
+            
+            // 创建临时Canvas上下文
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = width;
-            tempCanvas.height = height;
+            tempCanvas.width = fragmentWidth;
+            tempCanvas.height = fragmentHeight;
             const tempCtx = tempCanvas.getContext('2d');
-
-            imageFragments.forEach(img => {
-                tempCtx.clearRect(0, 0, width, height);
-                tempCtx.drawImage(img, 0, 0, width, height);
-                const imageData = tempCtx.getImageData(0, 0, width, height);
-
-                const baseData = ctx.getImageData(0, 0, width, height);
-                for (let i = 0; i < imageData.data.length; i += 4) {
-                    const r = imageData.data[i];
-                    const g = imageData.data[i + 1];
-                    const b = imageData.data[i + 2];
-                    const a = imageData.data[i + 3];
-
-                    // 以黑底碎片为例：若非黑即有像素
-                    if (!(r < 10 && g < 10 && b < 10)) {
-                        baseData.data[i] = r;
-                        baseData.data[i + 1] = g;
-                        baseData.data[i + 2] = b;
-                        baseData.data[i + 3] = a;
+            
+            // 存储生成的碎片
+            fragments = [];
+            
+            // 生成碎片
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < columns; col++) {
+                    // 设置背景颜色
+                    tempCtx.clearRect(0, 0, fragmentWidth, fragmentHeight);
+                    
+                    if (bgColor === 'white') {
+                        tempCtx.fillStyle = '#ffffff';
+                        tempCtx.fillRect(0, 0, fragmentWidth, fragmentHeight);
+                    } else if (bgColor === 'black') {
+                        tempCtx.fillStyle = '#000000';
+                        tempCtx.fillRect(0, 0, fragmentWidth, fragmentHeight);
+                    }
+                    // 如果是透明，则不需要额外处理
+                    
+                    // 计算源图像上的区域
+                    const sx = col * fragmentWidth;
+                    const sy = row * fragmentHeight;
+                    const sw = Math.min(fragmentWidth, originalCanvas.width - sx);
+                    const sh = Math.min(fragmentHeight, originalCanvas.height - sy);
+                    
+                    // 将源图像区域绘制到临时Canvas上
+                    tempCtx.drawImage(originalCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+                    
+                    // 保存碎片
+                    const fragment = tempCanvas.toDataURL('image/png');
+                    fragments.push(fragment);
+                    
+                    // 添加碎片到结果容器
+                    const img = document.createElement('img');
+                    img.src = fragment;
+                    img.className = 'result-image';
+                    img.title = `碎片 ${row * columns + col + 1}`;
+                    
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'image-container';
+                    
+                    // 添加下载按钮
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.className = 'btn';
+                    downloadBtn.textContent = '下载';
+                    downloadBtn.onclick = function() {
+                        downloadImage(fragment, `碎片_${row * columns + col + 1}.png`);
+                    };
+                    
+                    imgContainer.appendChild(img);
+                    imgContainer.appendChild(downloadBtn);
+                    
+                    document.getElementById('splitResultContainer').appendChild(imgContainer);
+                }
+            }
+            
+            // 隐藏加载动画
+            document.getElementById('split-spinner').style.display = 'none';
+            
+            // 显示结果区域
+            document.getElementById('split-results').classList.remove('hidden');
+        }
+        
+        // 下载单个图片
+        function downloadImage(dataURL, fileName) {
+            const link = document.createElement('a');
+            link.href = dataURL;
+            link.download = fileName;
+            link.click();
+        }
+        
+        // 下载所有碎片
+        function downloadAllFragments() {
+            if (fragments.length === 0) return;
+            
+            // 创建一个ZIP文件
+            const zip = new JSZip();
+            
+            // 添加所有碎片到ZIP
+            fragments.forEach((fragment, index) => {
+                // 从Base64数据URL中提取二进制数据
+                const base64Data = fragment.replace(/^data:image\/(png|jpg|jpeg);base64,/, '');
+                zip.file(`碎片_${index + 1}.png`, base64Data, {base64: true});
+            });
+            
+            // 生成ZIP文件并下载
+            zip.generateAsync({type: 'blob'}).then(function(content) {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = '所有碎片.zip';
+                link.click();
+            });
+        }
+        
+        // 处理多张图片（用于合并功能）
+        function processMultipleImages(files) {
+            if (files.length === 0) return;
+            
+            // 清空之前的碎片
+            fragments = [];
+            document.getElementById('fragmentPreviewContainer').innerHTML = '';
+            
+            // 处理每个文件
+            const promises = Array.from(files).map(file => {
+                return new Promise((resolve, reject) => {
+                    if (!file.type.match('image.*')) {
+                        resolve(null);
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const img = new Image();
+                        img.onload = function() {
+                            resolve({
+                                image: img,
+                                src: event.target.result
+                            });
+                        };
+                        img.onerror = reject;
+                        img.src = event.target.result;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            });
+            
+            // 等待所有图片加载完成
+            Promise.all(promises).then(results => {
+                // 过滤掉无效结果
+                fragments = results.filter(result => result !== null);
+                
+                // 添加碎片预览
+                fragments.forEach((fragment, index) => {
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'image-container';
+                    
+                    const img = document.createElement('img');
+                    img.src = fragment.src;
+                    img.className = 'result-image';
+                    img.dataset.index = index;
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'remove-btn';
+                    removeBtn.innerHTML = '×';
+                    removeBtn.onclick = function() {
+                        fragments.splice(index, 1);
+                        imgContainer.remove();
+                        updateMergeButton();
+                    };
+                    
+                    imgContainer.appendChild(img);
+                    imgContainer.appendChild(removeBtn);
+                    
+                    document.getElementById('fragmentPreviewContainer').appendChild(imgContainer);
+                });
+                
+                // 更新合并按钮状态
+                updateMergeButton();
+            }).catch(error => {
+                console.error('加载图片时出错:', error);
+            });
+        }
+        
+        // 更新合并按钮状态
+        function updateMergeButton() {
+            const mergeBtn = document.getElementById('mergeBtn');
+            mergeBtn.disabled = fragments.length < 2;
+        }
+        
+        // 合并图片
+        function mergeImages() {
+            if (fragments.length < 2) return;
+            
+            // 显示加载动画
+            document.getElementById('merge-spinner').style.display = 'block';
+            
+            // 首先确定合并后的尺寸（使用最大宽度和高度）
+            let maxWidth = 0;
+            let maxHeight = 0;
+            
+            fragments.forEach(fragment => {
+                maxWidth = Math.max(maxWidth, fragment.image.width);
+                maxHeight = Math.max(maxHeight, fragment.image.height);
+            });
+            
+            // 创建合并Canvas
+            const mergeCanvas = document.createElement('canvas');
+            mergeCanvas.width = maxWidth;
+            mergeCanvas.height = maxHeight;
+            const mergeCtx = mergeCanvas.getContext('2d');
+            
+            // 合并图片
+            // 对于合并操作，我们需要特殊处理每个像素
+            // 首先，创建一个空的ImageData
+            const mergedImageData = mergeCtx.createImageData(maxWidth, maxHeight);
+            const mergedData = mergedImageData.data;
+            
+            // 对于每个碎片，我们需要获取其图像数据
+            fragments.forEach(fragment => {
+                // 创建临时Canvas
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = fragment.image.width;
+                tempCanvas.height = fragment.image.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // 绘制碎片到临时Canvas
+                tempCtx.drawImage(fragment.image, 0, 0);
+                
+                // 获取图像数据
+                const imageData = tempCtx.getImageData(0, 0, fragment.image.width, fragment.image.height);
+                const data = imageData.data;
+                
+                // 对于每个像素，判断是否是背景色
+                for (let y = 0; y < fragment.image.height; y++) {
+                    for (let x = 0; x < fragment.image.width; x++) {
+                        const i = (y * fragment.image.width + x) * 4;
+                        
+                        // 判断是否是白色或黑色背景
+                        const isBackground = (
+                            (data[i] > 240 && data[i + 1] > 240 && data[i + 2] > 240) || // 白色
+                            (data[i] < 15 && data[i + 1] < 15 && data[i + 2] < 15)       // 黑色
+                        );
+                        
+                        // 如果不是背景色，则保留该像素
+                        if (!isBackground) {
+                            const mergedIndex = (y * maxWidth + x) * 4;
+                            
+                            // 只有在目标位置没有有效像素时，才替换
+                            // 或者采用一种混合策略
+                            if (mergedData[mergedIndex + 3] < data[i + 3]) { // 透明度比较
+                                mergedData[mergedIndex] = data[i];
+                                mergedData[mergedIndex + 1] = data[i + 1];
+                                mergedData[mergedIndex + 2] = data[i + 2];
+                                mergedData[mergedIndex + 3] = data[i + 3];
+                            }
+                        }
                     }
                 }
-                ctx.putImageData(baseData, 0, 0);
             });
-        });
-
-        downloadBtn.addEventListener('click', () => {
-            const link = document.createElement('a');
-            link.download = 'merged.png';
-            link.href = mergeCanvas.toDataURL();
-            link.click();
-        });
-    </script>
-</body>
-</html>
+            
+            // 将合并后的ImageData放回Canvas
+            mergeCtx.putImageData(mergedImageData, 0, 0);
+            
+            // 保存合并结果
+            mergedImage = mergeCanvas.toDataURL('image/png');
+            
+            // 更新预览
+            document.getElementById('mergeResultImage').src = mergedImage;
+            
+            // 隐藏加载动画
+            document.getElementById('merge-spinner').style.display = 'none';
+            
+            // 显示结果区域
+            document.getElementById('merge-results').classList.remove('hidden');
+        }
+        
+        // 更新合并图片预览
+        function updateMergedImagePreview() {
+            if (!mergedImage) return;
+            
+            // 创建临时Canvas
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // 加载合并图片
+            const img = new Image();
+            img.onload = function() {
+                tempCanvas.width = img.width;
+                tempCanvas.height = img.height;
+                
+                // 绘制图片
+                tempCtx.drawImage(img, 0, 0);
+                
+                // 如果需要反色
+                if (isMergedInverted) {
+                    invertCanvas(tempCtx, 0, 0, tempCanvas.width, tempCanvas.height);
+                }
+                
+                // 更新预览
+                document.getElementById('mergeResultImage').src = tempCanvas.toDataURL();
+            };
+            img.src = mergedImage;
+        }
+        
+        // 下载合并图片
+        function downloadMergedImage() {
+            if (!mergedImage) return;
+            
+            // 获取当前显示的图片（可能是反色处理后的）
+            const currentImage = document.getElementById('mergeResultImage').src;
+            
+            // 下载图片
+            downloadImage(currentImage, '合并结果.png');
+        }
+        
+        // 用于下载ZIP的简易JSZip polyfill
+        // 注意：实际应用中应该使用真正的JSZip库
+        class JSZip {
+            constructor() {
+                this.files = {};
+            }
+            
+            file(path, content, options) {
+                this.files[path] = { content, options };
+            }
+            
+            generateAsync(options) {
+                // 这里是一个非常简化的实现
+                // 真实情况下，应该使用完整的JSZip库
+                return new Promise((resolve, reject) => {
+                    alert('此功能需要JSZip库支持，请在实际应用中引入JSZip。');
+                    reject(new Error('JSZip不可用'));
+                });
+            }
+        }
+</script>
