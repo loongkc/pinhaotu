@@ -1068,103 +1068,114 @@
             const mergeBtn = document.getElementById('mergeBtn');
             mergeBtn.disabled = fragments.length < 2;
         }
+
+
+
+
+
         
         // 合并图片
-    let images = [];
-
-    function toggleSubMenu(id) {
-      document.querySelectorAll('.submenu').forEach(menu => {
-        if (menu.id === id) {
-          menu.classList.toggle('active');
-        } else {
-          menu.classList.remove('active');
+        let images = [];
+    
+        function toggleSubMenu(id) {
+          document.querySelectorAll('.submenu').forEach(menu => {
+            if (menu.id === id) {
+              menu.classList.toggle('active');
+            } else {
+              menu.classList.remove('active');
+            }
+          });
         }
-      });
-    }
-
-    function handleFiles(fileList) {
-      const container = document.getElementById('image-container');
-      container.innerHTML = '';
-      images = [];
-
-      Array.from(fileList).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = function (event) {
-          const img = new Image();
-          img.onload = function () {
-            images.push({ img, src: event.target.result });
-            container.appendChild(img);
-          };
-          img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-
-    function getBoundingBox(ctx, width, height) {
-      const imgData = ctx.getImageData(0, 0, width, height);
-      const data = imgData.data;
-      let minX = width, minY = height, maxX = 0, maxY = 0;
-      let found = false;
-
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const i = (y * width + x) * 4;
-          const alpha = data[i + 3];
-          if (alpha > 0) {
-            if (x < minX) minX = x;
-            if (y < minY) minY = y;
-            if (x > maxX) maxX = x;
-            if (y > maxY) maxY = y;
-            found = true;
+    
+        function handleFiles(fileList) {
+          const container = document.getElementById('image-container');
+          container.innerHTML = '';
+          images = [];
+    
+          Array.from(fileList).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = function (event) {
+              const img = new Image();
+              img.onload = function () {
+                images.push({ img, src: event.target.result });
+                container.appendChild(img);
+              };
+              img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+    
+        function getBoundingBox(ctx, width, height) {
+          const imgData = ctx.getImageData(0, 0, width, height);
+          const data = imgData.data;
+          let minX = width, minY = height, maxX = 0, maxY = 0;
+          let found = false;
+    
+          for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+              const i = (y * width + x) * 4;
+              const alpha = data[i + 3];
+              if (alpha > 0) {
+                if (x < minX) minX = x;
+                if (y < minY) minY = y;
+                if (x > maxX) maxX = x;
+                if (y > maxY) maxY = y;
+                found = true;
+              }
+            }
           }
+          return found ? { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 } : null;
         }
-      }
-      return found ? { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 } : null;
-    }
-
-    function mergeImages() {
-      if (images.length === 0) return;
-
-      const canvas = document.getElementById('merged-canvas');
-      const ctx = canvas.getContext('2d');
-
-      // 假设所有图片尺寸相同，取第一张图作为参考
-      const width = images[0].img.width;
-      const height = images[0].img.height;
-      canvas.width = width;
-      canvas.height = height;
-      ctx.clearRect(0, 0, width, height);
-
-      images.forEach(({ img }) => {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = img.width;
-        tempCanvas.height = img.height;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(img, 0, 0);
-
-        const box = getBoundingBox(tempCtx, img.width, img.height);
-        if (box) {
-          const fragmentData = tempCtx.getImageData(box.x, box.y, box.w, box.h);
-          ctx.putImageData(fragmentData, box.x, box.y);
+    
+        function mergeImages() {
+          if (images.length === 0) return;
+    
+          const canvas = document.getElementById('merged-canvas');
+          const ctx = canvas.getContext('2d');
+    
+          // 假设所有图片尺寸相同，取第一张图作为参考
+          const width = images[0].img.width;
+          const height = images[0].img.height;
+          canvas.width = width;
+          canvas.height = height;
+          ctx.clearRect(0, 0, width, height);
+    
+          images.forEach(({ img }) => {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = img.width;
+            tempCanvas.height = img.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(img, 0, 0);
+    
+            const box = getBoundingBox(tempCtx, img.width, img.height);
+            if (box) {
+              const fragmentData = tempCtx.getImageData(box.x, box.y, box.w, box.h);
+              ctx.putImageData(fragmentData, box.x, box.y);
+            }
+          });
         }
-      });
-    }
+    
+        function invertMergedImage() {
+          const canvas = document.getElementById('merged-canvas');
+          const ctx = canvas.getContext('2d');
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+    
+          for (let i = 0; i < data.length; i += 4) {
+            data[i] = 255 - data[i];     // Red
+            data[i + 1] = 255 - data[i + 1]; // Green
+            data[i + 2] = 255 - data[i + 2]; // Blue
+          }
+    
+          ctx.putImageData(imageData, 0, 0);
+        }
 
-    function invertMergedImage() {
-      const canvas = document.getElementById('merged-canvas');
-      const ctx = canvas.getContext('2d');
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
 
-      for (let i = 0; i < data.length; i += 4) {
-        data[i] = 255 - data[i];     // Red
-        data[i + 1] = 255 - data[i + 1]; // Green
-        data[i + 2] = 255 - data[i + 2]; // Blue
-      }
 
-      ctx.putImageData(imageData, 0, 0);
-    }
+
+
+
         
         // 更新合并图片预览
         function updateMergedImagePreview() {
