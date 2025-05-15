@@ -2,259 +2,558 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>拼好图 - 图片拆分与合并工具</title>
     <style>
+        /* 基础样式 */
+        :root {
+            --primary-color: #3498db;
+            --primary-hover: #2980b9;
+            --secondary-color: #2ecc71;
+            --secondary-hover: #27ae60;
+            --danger-color: #e74c3c;
+            --light-gray: #f5f5f5;
+            --gray: #95a5a6;
+            --border-color: #ddd;
+            --text-color: #333;
+            --light-text: #7f8c8d;
+            --dark-text: #2c3e50;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --border-radius: 8px;
+            --small-radius: 4px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             line-height: 1.6;
             margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-            color: #333;
+            padding: 10px;
+            background-color: var(--light-gray);
+            color: var(--text-color);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
+
         .container {
-            max-width: 1200px;
+            max-width: 1000px;
             margin: 0 auto;
             background-color: #fff;
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
         }
+
+        h1, h2, h3 {
+            color: var(--dark-text);
+            margin-bottom: 15px;
+        }
+
         h1 {
             text-align: center;
-            color: #2c3e50;
+            font-size: 24px;
             margin-bottom: 20px;
         }
+
+        h3 {
+            font-size: 18px;
+            margin-top: 15px;
+        }
+
+        /* 标签页样式 */
         .tabs {
             display: flex;
             margin-bottom: 20px;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid var(--border-color);
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
         }
+
+        .tabs::-webkit-scrollbar {
+            display: none; /* Chrome, Safari and Opera */
+        }
+
         .tab {
             padding: 10px 20px;
             cursor: pointer;
             background-color: #f8f9fa;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border-color);
             border-bottom: none;
             border-radius: 5px 5px 0 0;
             margin-right: 5px;
             font-weight: bold;
+            flex: 0 0 auto;
+            transition: all 0.2s ease;
         }
+
         .tab.active {
             background-color: #fff;
             border-bottom: 1px solid #fff;
             margin-bottom: -1px;
-            color: #3498db;
+            color: var(--primary-color);
         }
+
         .tab-content {
             display: none;
         }
+
         .tab-content.active {
             display: block;
+            animation: fadeIn 0.3s ease;
         }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* 面板和控制区域 */
         .panel {
             margin-bottom: 20px;
             padding: 15px;
             border: 1px solid #e0e0e0;
-            border-radius: 5px;
+            border-radius: var(--small-radius);
             background-color: #fafafa;
         }
+
         .controls {
             display: flex;
             flex-wrap: wrap;
             gap: 15px;
             margin-bottom: 20px;
         }
+
         .control-group {
             flex: 1;
-            min-width: 200px;
+            min-width: 150px;
         }
+
+        /* 按钮和输入框 */
         .btn {
             display: inline-block;
-            background-color: #3498db;
+            background-color: var(--primary-color);
             color: white;
             padding: 10px 15px;
             border: none;
-            border-radius: 4px;
+            border-radius: var(--small-radius);
             cursor: pointer;
-            font-size: 16px;
+            font-size: 15px;
             margin-top: 10px;
+            text-align: center;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
-        .btn:hover {
-            background-color: #2980b9;
+
+        .btn:hover:not(:disabled) {
+            background-color: var(--primary-hover);
         }
+
+        .btn:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+
         .btn:disabled {
-            background-color: #95a5a6;
+            background-color: var(--gray);
             cursor: not-allowed;
+            opacity: 0.7;
         }
+
+        .btn-secondary {
+            background-color: var(--secondary-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--secondary-hover);
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+        }
+
+        .file-label {
+            display: inline-block;
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 10px 15px;
+            border-radius: var(--small-radius);
+            cursor: pointer;
+            font-size: 15px;
+            transition: background-color 0.2s ease;
+            text-align: center;
+        }
+
+        .file-label:hover {
+            background-color: var(--secondary-hover);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        select, input[type="range"], input[type="number"], input[type="color"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--small-radius);
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            background: #d3d3d3;
+            outline: none;
+            border: none;
+            border-radius: 4px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s ease;
+        }
+
+        /* 结果容器和图像 */
         .result-container {
             display: flex;
             flex-wrap: wrap;
             gap: 15px;
-            margin-top: 20px;
+            margin-top: 15px;
+            justify-content: center;
         }
+
         .result-image {
-            max-width: 200px;
-            max-height: 200px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 5px;
+            max-width: 150px;
+            max-height: 150px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--small-radius);
+            padding: 3px;
             background-color: white;
+            object-fit: contain;
+            transition: transform 0.2s ease;
         }
+
         .image-container {
             display: inline-block;
             position: relative;
-            margin: 10px;
+            margin: 5px;
+            transition: transform 0.2s ease;
         }
+
+        .image-container:hover {
+            transform: scale(1.05);
+        }
+
         .image-container img {
-            max-width: 200px;
-            max-height: 200px;
-            border: 1px solid #ddd;
-            padding: 5px;
+            max-width: 150px;
+            max-height: 150px;
+            border: 1px solid var(--border-color);
+            padding: 3px;
+            object-fit: contain;
         }
+
         .image-container .remove-btn {
             position: absolute;
-            top: -10px;
-            right: -10px;
-            background-color: #e74c3c;
+            top: -8px;
+            right: -8px;
+            background-color: var(--danger-color);
             color: white;
             border: none;
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
+            width: 22px;
+            height: 22px;
             font-size: 14px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: background-color 0.2s ease;
+            z-index: 2;
         }
+
+        .image-container .remove-btn:hover {
+            background-color: #c0392b;
+        }
+
         .download-all {
             text-align: center;
             margin-top: 20px;
         }
-        input[type="file"] {
-            display: none;
-        }
-        .file-label {
-            display: inline-block;
-            background-color: #2ecc71;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        .file-label:hover {
-            background-color: #27ae60;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        select, input[type="range"], input[type="number"], input[type="color"] {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-left: 4px solid #3498db;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-            display: none;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .hidden {
-            display: none;
-        }
-        .footer {
-            margin-top: 30px;
-            text-align: center;
-            color: #7f8c8d;
-            font-size: 14px;
-        }
+
+        /* 预览区域 */
         .preview-area {
             margin-top: 20px;
             text-align: center;
         }
+
         .preview-image {
             max-width: 100%;
-            max-height: 400px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 5px;
+            max-height: 300px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--small-radius);
+            padding: 3px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
+
         .drag-drop-area {
             border: 2px dashed #ccc;
-            border-radius: 5px;
-            padding: 30px;
+            border-radius: var(--small-radius);
+            padding: 25px;
             text-align: center;
             margin-bottom: 20px;
             color: #666;
-            transition: all 0.3s;
+            transition: all 0.3s ease;
         }
+
         .drag-drop-area.dragover {
             background-color: rgba(52, 152, 219, 0.1);
-            border-color: #3498db;
+            border-color: var(--primary-color);
         }
+
         .merge-preview {
-            max-width: 600px;
-            max-height: 600px;
+            max-width: 100%;
+            max-height: 400px;
             margin: 0 auto;
             display: block;
+            border: 1px solid var(--border-color);
+            border-radius: var(--small-radius);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 34px;
-        }
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
+
+        /* 加载动画 */
+        .spinner {
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-left: 3px solid var(--primary-color);
             border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 15px auto;
+            display: none;
         }
-        input:checked + .toggle-slider {
-            background-color: #2196F3;
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
-        input:checked + .toggle-slider:before {
-            transform: translateX(26px);
+
+        /* 通用助手类 */
+        .hidden {
+            display: none;
         }
-        .switch-label {
-            margin-left: 70px;
-            font-weight: normal;
+
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            color: var(--light-text);
+            font-size: 13px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+            
+            .container {
+                padding: 12px;
+                border-radius: var(--small-radius);
+            }
+            
+            h1 {
+                font-size: 20px;
+                margin-bottom: 15px;
+            }
+            
+            .panel {
+                padding: 10px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .control-group {
+                width: 100%;
+            }
+            
+            .btn, .file-label {
+                width: 100%;
+                padding: 12px 10px;
+                font-size: 16px;
+                margin-top: 5px;
+            }
+            
+            .preview-image {
+                max-height: 250px;
+            }
+            
+            .result-image, .image-container img {
+                max-width: 120px;
+                max-height: 120px;
+            }
+            
+            .drag-drop-area {
+                padding: 15px 10px;
+            }
+            
+            .tab {
+                padding: 10px 15px;
+                font-size: 14px;
+            }
+            
+            .image-container .btn {
+                font-size: 12px;
+                padding: 6px 10px;
+            }
+            
+            /* 提高触摸目标大小 */
+            select, input[type="range"] {
+                height: 44px;
+            }
+            
+            input[type="range"]::-webkit-slider-thumb {
+                width: 25px;
+                height: 25px;
+            }
+            
+            input[type="range"]::-moz-range-thumb {
+                width: 25px;
+                height: 25px;
+            }
+            
+            .image-container .remove-btn {
+                width: 25px;
+                height: 25px;
+            }
+        }
+        
+        /* 高分辨率屏幕适配 */
+        @media (min-width: 1200px) {
+            .container {
+                max-width: 1100px;
+            }
+            
+            .result-image, .image-container img {
+                max-width: 180px;
+                max-height: 180px;
+            }
+        }
+        
+        /* 平板适配 */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .container {
+                max-width: 90%;
+            }
+            
+            .controls {
+                flex-wrap: wrap;
+            }
+            
+            .control-group {
+                min-width: 200px;
+                flex: 0 0 calc(50% - 10px);
+            }
+        }
+        
+        /* 黑暗模式支持 */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-color: #3498db;
+                --primary-hover: #5dade2;
+                --secondary-color: #2ecc71;
+                --secondary-hover: #58d68d;
+                --danger-color: #e74c3c;
+                --light-gray: #121212;
+                --gray: #555;
+                --border-color: #333;
+                --text-color: #f0f0f0;
+                --light-text: #bbb;
+                --dark-text: #f0f0f0;
+                --shadow: 0 2px 10px rgba(0,0,0,0.3);
+            }
+            
+            body {
+                background-color: #000;
+            }
+            
+            .container, .tab.active {
+                background-color: #222;
+                border-color: #333;
+            }
+            
+            .panel {
+                background-color: #2a2a2a;
+                border-color: #333;
+            }
+            
+            .tab {
+                background-color: #333;
+                border-color: #444;
+            }
+            
+            .tab.active {
+                border-bottom-color: #222;
+            }
+            
+            .drag-drop-area {
+                border-color: #555;
+                color: #bbb;
+            }
+            
+            .drag-drop-area.dragover {
+                background-color: rgba(52, 152, 219, 0.2);
+            }
+            
+            .result-image, .preview-image, .merge-preview, .image-container img {
+                border-color: #444;
+                background-color: #333;
+            }
+            
+            select, input[type="range"], input[type="number"], input[type="color"] {
+                background-color: #333;
+                color: #f0f0f0;
+                border-color: #555;
+            }
+            
+            input[type="range"] {
+                background: #555;
+            }
         }
     </style>
 </head>
@@ -352,8 +651,9 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
-        // 全局变量
+       // 全局变量
         let originalImage = null;
         let originalCanvas = document.createElement('canvas');
         let originalCtx = originalCanvas.getContext('2d');
@@ -582,273 +882,337 @@
             // 显示加载动画
             document.getElementById('split-spinner').style.display = 'block';
             
+            // 清空之前的结果
+            document.getElementById('splitResultContainer').innerHTML = '';
+            
             // 获取拆分参数
             const columns = parseInt(document.getElementById('splitColumns').value);
             const rows = parseInt(document.getElementById('splitRows').value);
-            const backgroundColor = document.getElementById('backgroundColor').value;
+            const bgColor = document.getElementById('backgroundColor').value;
             
-            // 创建临时Canvas
+            // 计算每个碎片的尺寸
+            const fragmentWidth = Math.ceil(originalCanvas.width / columns);
+            const fragmentHeight = Math.ceil(originalCanvas.height / rows);
+            
+            // 创建临时Canvas上下文
             const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = fragmentWidth;
+            tempCanvas.height = fragmentHeight;
             const tempCtx = tempCanvas.getContext('2d');
             
-            // 设置临时Canvas大小为原图大小
-            tempCanvas.width = originalCanvas.width;
-            tempCanvas.height = originalCanvas.height;
-            
-            // 绘制原始图片（可能已经反色）
-            tempCtx.drawImage(originalCanvas, 0, 0);
-            
-            // 计算每个碎片的大小
-            const fragmentWidth = originalImage.width / columns;
-            const fragmentHeight = originalImage.height / rows;
-            
-            // 清空之前的碎片
+            // 存储生成的碎片
             fragments = [];
             
-            // 创建碎片
+            // 生成碎片
             for (let row = 0; row < rows; row++) {
                 for (let col = 0; col < columns; col++) {
-                    // 创建碎片Canvas
-                    const fragmentCanvas = document.createElement('canvas');
-                    fragmentCanvas.width = originalImage.width;
-                    fragmentCanvas.height = originalImage.height;
-                    const fragmentCtx = fragmentCanvas.getContext('2d');
-                    
                     // 设置背景颜色
-                    if (backgroundColor === 'white') {
-                        fragmentCtx.fillStyle = '#ffffff';
-                        fragmentCtx.fillRect(0, 0, fragmentCanvas.width, fragmentCanvas.height);
-                    } else if (backgroundColor === 'black') {
-                        fragmentCtx.fillStyle = '#000000';
-                        fragmentCtx.fillRect(0, 0, fragmentCanvas.width, fragmentCanvas.height);
+                    tempCtx.clearRect(0, 0, fragmentWidth, fragmentHeight);
+                    
+                    if (bgColor === 'white') {
+                        tempCtx.fillStyle = '#ffffff';
+                        tempCtx.fillRect(0, 0, fragmentWidth, fragmentHeight);
+                    } else if (bgColor === 'black') {
+                        tempCtx.fillStyle = '#000000';
+                        tempCtx.fillRect(0, 0, fragmentWidth, fragmentHeight);
                     }
-                    // 如果是透明，则不需要设置背景
+                    // 如果是透明，则不需要额外处理
                     
-                    // 计算当前碎片的位置
-                    const x = col * fragmentWidth;
-                    const y = row * fragmentHeight;
+                    // 计算源图像上的区域
+                    const sx = col * fragmentWidth;
+                    const sy = row * fragmentHeight;
+                    const sw = Math.min(fragmentWidth, originalCanvas.width - sx);
+                    const sh = Math.min(fragmentHeight, originalCanvas.height - sy);
                     
-                    // 复制原图对应区域到碎片
-                    fragmentCtx.drawImage(
-                        tempCanvas,
-                        x, y, fragmentWidth, fragmentHeight,
-                        x, y, fragmentWidth, fragmentHeight
-                    );
+                    // 将源图像区域绘制到临时Canvas上
+                    tempCtx.drawImage(originalCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
                     
-                    // 将碎片添加到数组
-                    fragments.push({
-                        canvas: fragmentCanvas,
-                        url: fragmentCanvas.toDataURL()
-                    });
+                    // 保存碎片
+                    const fragment = tempCanvas.toDataURL('image/png');
+                    fragments.push(fragment);
+                    
+                    // 添加碎片到结果容器
+                    const img = document.createElement('img');
+                    img.src = fragment;
+                    img.className = 'result-image';
+                    img.title = `碎片 ${row * columns + col + 1}`;
+                    
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'image-container';
+                    
+                    // 添加下载按钮
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.className = 'btn';
+                    downloadBtn.textContent = '下载';
+                    downloadBtn.onclick = function() {
+                        downloadImage(fragment, `碎片_${row * columns + col + 1}.png`);
+                    };
+                    
+                    imgContainer.appendChild(img);
+                    imgContainer.appendChild(downloadBtn);
+                    
+                    document.getElementById('splitResultContainer').appendChild(imgContainer);
                 }
             }
             
-            // 显示结果区域
-            document.getElementById('split-results').classList.remove('hidden');
-            
-            // 更新结果显示
-            updateSplitResults();
-            
             // 隐藏加载动画
             document.getElementById('split-spinner').style.display = 'none';
+            
+            // 显示结果区域
+            document.getElementById('split-results').classList.remove('hidden');
         }
         
-        // 更新拆分结果显示
-        function updateSplitResults() {
-            const resultContainer = document.getElementById('splitResultContainer');
-            resultContainer.innerHTML = '';
-            
-            fragments.forEach((fragment, index) => {
-                const imgContainer = document.createElement('div');
-                imgContainer.className = 'image-container';
-                
-                const img = document.createElement('img');
-                img.src = fragment.url;
-                img.className = 'result-image';
-                img.alt = `碎片 ${index + 1}`;
-                
-                const downloadBtn = document.createElement('a');
-                downloadBtn.className = 'btn';
-                downloadBtn.style.marginTop = '5px';
-                downloadBtn.textContent = '下载';
-                downloadBtn.href = fragment.url;
-                downloadBtn.download = `fragment_${index + 1}.png`;
-                
-                imgContainer.appendChild(img);
-                imgContainer.appendChild(downloadBtn);
-                resultContainer.appendChild(imgContainer);
-            });
+        // 下载单个图片
+        function downloadImage(dataURL, fileName) {
+            const link = document.createElement('a');
+            link.href = dataURL;
+            link.download = fileName;
+            link.click();
         }
         
         // 下载所有碎片
         function downloadAllFragments() {
             if (fragments.length === 0) return;
             
-            // 创建一个zip文件 (简化版，实际应使用JSZip库)
+            // 创建一个ZIP文件
+            const zip = new JSZip();
+            
+            // 添加所有碎片到ZIP
             fragments.forEach((fragment, index) => {
+                // 从Base64数据URL中提取二进制数据
+                const base64Data = fragment.replace(/^data:image\/(png|jpg|jpeg);base64,/, '');
+                zip.file(`碎片_${index + 1}.png`, base64Data, {base64: true});
+            });
+            
+            // 生成ZIP文件并下载
+            zip.generateAsync({type: 'blob'}).then(function(content) {
                 const link = document.createElement('a');
-                link.href = fragment.url;
-                link.download = `fragment_${index + 1}.png`;
+                link.href = URL.createObjectURL(content);
+                link.download = '所有碎片.zip';
                 link.click();
-                
-                // 简单延迟，避免浏览器阻止多次下载
-                setTimeout(() => {}, 100);
             });
         }
         
-        // 处理多个图片（用于合并功能）
+        // 处理多张图片（用于合并功能）
         function processMultipleImages(files) {
             if (files.length === 0) return;
             
             // 清空之前的碎片
-            const fragmentPreviewContainer = document.getElementById('fragmentPreviewContainer');
-            fragmentPreviewContainer.innerHTML = '';
             fragments = [];
+            document.getElementById('fragmentPreviewContainer').innerHTML = '';
             
             // 处理每个文件
-            Array.from(files).forEach((file, index) => {
-                if (file.type.match('image.*')) {
+            const promises = Array.from(files).map(file => {
+                return new Promise((resolve, reject) => {
+                    if (!file.type.match('image.*')) {
+                        resolve(null);
+                        return;
+                    }
+                    
                     const reader = new FileReader();
                     reader.onload = function(event) {
-                        // 创建图片对象
                         const img = new Image();
                         img.onload = function() {
-                            // 创建Canvas以便后续处理
-                            const canvas = document.createElement('canvas');
-                            canvas.width = img.width;
-                            canvas.height = img.height;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0);
-                            
-                            // 添加到碎片数组
-                            fragments.push({
-                                canvas: canvas,
-                                url: canvas.toDataURL()
+                            resolve({
+                                image: img,
+                                src: event.target.result
                             });
-                            
-                            // 创建预览元素
-                            const imgContainer = document.createElement('div');
-                            imgContainer.className = 'image-container';
-                            
-                            const imgElement = document.createElement('img');
-                            imgElement.src = canvas.toDataURL();
-                            imgElement.className = 'result-image';
-                            imgElement.alt = `碎片 ${index + 1}`;
-                            
-                            const removeBtn = document.createElement('button');
-                            removeBtn.className = 'remove-btn';
-                            removeBtn.textContent = '×';
-                            removeBtn.onclick = function() {
-                                fragments = fragments.filter(f => f.url !== canvas.toDataURL());
-                                imgContainer.remove();
-                                updateMergeButtonState();
-                            };
-                            
-                            imgContainer.appendChild(imgElement);
-                            imgContainer.appendChild(removeBtn);
-                            fragmentPreviewContainer.appendChild(imgContainer);
-                            
-                            // 更新合并按钮状态
-                            updateMergeButtonState();
                         };
+                        img.onerror = reject;
                         img.src = event.target.result;
                     };
+                    reader.onerror = reject;
                     reader.readAsDataURL(file);
-                }
+                });
+            });
+            
+            // 等待所有图片加载完成
+            Promise.all(promises).then(results => {
+                // 过滤掉无效结果
+                fragments = results.filter(result => result !== null);
+                
+                // 添加碎片预览
+                fragments.forEach((fragment, index) => {
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'image-container';
+                    
+                    const img = document.createElement('img');
+                    img.src = fragment.src;
+                    img.className = 'result-image';
+                    img.dataset.index = index;
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'remove-btn';
+                    removeBtn.innerHTML = '×';
+                    removeBtn.onclick = function() {
+                        fragments.splice(index, 1);
+                        imgContainer.remove();
+                        updateMergeButton();
+                    };
+                    
+                    imgContainer.appendChild(img);
+                    imgContainer.appendChild(removeBtn);
+                    
+                    document.getElementById('fragmentPreviewContainer').appendChild(imgContainer);
+                });
+                
+                // 更新合并按钮状态
+                updateMergeButton();
+            }).catch(error => {
+                console.error('加载图片时出错:', error);
             });
         }
         
         // 更新合并按钮状态
-        function updateMergeButtonState() {
-            document.getElementById('mergeBtn').disabled = fragments.length === 0;
+        function updateMergeButton() {
+            const mergeBtn = document.getElementById('mergeBtn');
+            mergeBtn.disabled = fragments.length < 2;
         }
         
         // 合并图片
         function mergeImages() {
-            if (fragments.length === 0) return;
+            if (fragments.length < 2) return;
             
             // 显示加载动画
             document.getElementById('merge-spinner').style.display = 'block';
             
-            // 创建合并Canvas
-            const mergeCanvas = document.createElement('canvas');
+            // 首先确定合并后的尺寸（使用最大宽度和高度）
+            let maxWidth = 0;
+            let maxHeight = 0;
             
-            // 假设所有碎片大小相同，使用第一个碎片的尺寸
-            const firstFragment = fragments[0];
-            mergeCanvas.width = firstFragment.canvas.width;
-            mergeCanvas.height = firstFragment.canvas.height;
-            
-            const mergeCtx = mergeCanvas.getContext('2d');
-            
-            // 默认填充透明背景
-            mergeCtx.clearRect(0, 0, mergeCanvas.width, mergeCanvas.height);
-            
-            // 合并所有碎片
             fragments.forEach(fragment => {
-                mergeCtx.drawImage(fragment.canvas, 0, 0);
+                maxWidth = Math.max(maxWidth, fragment.image.width);
+                maxHeight = Math.max(maxHeight, fragment.image.height);
             });
             
+            // 创建合并Canvas
+            const mergeCanvas = document.createElement('canvas');
+            mergeCanvas.width = maxWidth;
+            mergeCanvas.height = maxHeight;
+            const mergeCtx = mergeCanvas.getContext('2d');
+            
+            // 合并图片
+            // 对于合并操作，我们需要特殊处理每个像素
+            // 首先，创建一个空的ImageData
+            const mergedImageData = mergeCtx.createImageData(maxWidth, maxHeight);
+            const mergedData = mergedImageData.data;
+            
+            // 对于每个碎片，我们需要获取其图像数据
+            fragments.forEach(fragment => {
+                // 创建临时Canvas
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = fragment.image.width;
+                tempCanvas.height = fragment.image.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // 绘制碎片到临时Canvas
+                tempCtx.drawImage(fragment.image, 0, 0);
+                
+                // 获取图像数据
+                const imageData = tempCtx.getImageData(0, 0, fragment.image.width, fragment.image.height);
+                const data = imageData.data;
+                
+                // 对于每个像素，判断是否是背景色
+                for (let y = 0; y < fragment.image.height; y++) {
+                    for (let x = 0; x < fragment.image.width; x++) {
+                        const i = (y * fragment.image.width + x) * 4;
+                        
+                        // 判断是否是白色或黑色背景
+                        const isBackground = (
+                            (data[i] > 240 && data[i + 1] > 240 && data[i + 2] > 240) || // 白色
+                            (data[i] < 15 && data[i + 1] < 15 && data[i + 2] < 15)       // 黑色
+                        );
+                        
+                        // 如果不是背景色，则保留该像素
+                        if (!isBackground) {
+                            const mergedIndex = (y * maxWidth + x) * 4;
+                            
+                            // 只有在目标位置没有有效像素时，才替换
+                            // 或者采用一种混合策略
+                            if (mergedData[mergedIndex + 3] < data[i + 3]) { // 透明度比较
+                                mergedData[mergedIndex] = data[i];
+                                mergedData[mergedIndex + 1] = data[i + 1];
+                                mergedData[mergedIndex + 2] = data[i + 2];
+                                mergedData[mergedIndex + 3] = data[i + 3];
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 将合并后的ImageData放回Canvas
+            mergeCtx.putImageData(mergedImageData, 0, 0);
+            
             // 保存合并结果
-            mergedImage = mergeCanvas;
-            isMergedInverted = false;
+            mergedImage = mergeCanvas.toDataURL('image/png');
             
-            // 更新合并结果显示
-            updateMergedImagePreview();
-            
-            // 显示结果区域
-            document.getElementById('merge-results').classList.remove('hidden');
+            // 更新预览
+            document.getElementById('mergeResultImage').src = mergedImage;
             
             // 隐藏加载动画
             document.getElementById('merge-spinner').style.display = 'none';
+            
+            // 显示结果区域
+            document.getElementById('merge-results').classList.remove('hidden');
         }
         
         // 更新合并图片预览
         function updateMergedImagePreview() {
             if (!mergedImage) return;
             
-            // 创建临时Canvas进行显示
-            const displayCanvas = document.createElement('canvas');
-            displayCanvas.width = mergedImage.width;
-            displayCanvas.height = mergedImage.height;
-            const displayCtx = displayCanvas.getContext('2d');
+            // 创建临时Canvas
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
             
-            // 绘制合并的图片
-            displayCtx.drawImage(mergedImage, 0, 0);
-            
-            // 如果需要反色
-            if (isMergedInverted) {
-                invertCanvas(displayCtx, 0, 0, displayCanvas.width, displayCanvas.height);
-            }
-            
-            // 更新预览
-            document.getElementById('mergeResultImage').src = displayCanvas.toDataURL();
+            // 加载合并图片
+            const img = new Image();
+            img.onload = function() {
+                tempCanvas.width = img.width;
+                tempCanvas.height = img.height;
+                
+                // 绘制图片
+                tempCtx.drawImage(img, 0, 0);
+                
+                // 如果需要反色
+                if (isMergedInverted) {
+                    invertCanvas(tempCtx, 0, 0, tempCanvas.width, tempCanvas.height);
+                }
+                
+                // 更新预览
+                document.getElementById('mergeResultImage').src = tempCanvas.toDataURL();
+            };
+            img.src = mergedImage;
         }
         
         // 下载合并图片
         function downloadMergedImage() {
             if (!mergedImage) return;
             
-            // 创建临时Canvas
-            const downloadCanvas = document.createElement('canvas');
-            downloadCanvas.width = mergedImage.width;
-            downloadCanvas.height = mergedImage.height;
-            const downloadCtx = downloadCanvas.getContext('2d');
+            // 获取当前显示的图片（可能是反色处理后的）
+            const currentImage = document.getElementById('mergeResultImage').src;
             
-            // 绘制合并的图片
-            downloadCtx.drawImage(mergedImage, 0, 0);
-            
-            // 如果需要反色
-            if (isMergedInverted) {
-                invertCanvas(downloadCtx, 0, 0, downloadCanvas.width, downloadCanvas.height);
+            // 下载图片
+            downloadImage(currentImage, '合并结果.png');
+        }
+        
+        // 用于下载ZIP的简易JSZip polyfill
+        // 注意：实际应用中应该使用真正的JSZip库
+        class JSZip {
+            constructor() {
+                this.files = {};
             }
             
-            // 创建下载链接
-            const link = document.createElement('a');
-            link.href = downloadCanvas.toDataURL('image/png');
-            link.download = 'merged_image.png';
-            link.click();
-        }
-    </script>
-</body>
-</html>
+            file(path, content, options) {
+                this.files[path] = { content, options };
+            }
             
+            generateAsync(options) {
+                // 这里是一个非常简化的实现
+                // 真实情况下，应该使用完整的JSZip库
+                return new Promise((resolve, reject) => {
+                    alert('此功能需要JSZip库支持，请在实际应用中引入JSZip。');
+                    reject(new Error('JSZip不可用'));
+                });
+            }
+        }
+</script>
